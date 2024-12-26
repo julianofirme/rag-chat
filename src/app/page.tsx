@@ -9,12 +9,12 @@ import { Upload, Send, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function BrandingChat() {
-  const [file, setFile] = useState<File | null>(null)
+  const [sessionId, setSessionId] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
 
   const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
     api: '/api/chat',
-    body: { file }
+    body: { sessionId }
   })
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,8 +32,8 @@ export default function BrandingChat() {
         })
 
         if (response.ok) {
-          const { splits }  = await response.json();
-          setFile(splits)
+          const { sessionId } = await response.json();
+          setSessionId(sessionId)
           
           toast.success("PDF uploaded successfully", {
             description: "You can now start chatting about the content.",
@@ -46,7 +46,7 @@ export default function BrandingChat() {
         toast.error("Upload failed", {
           description: "Please try again later.",
         })
-        setFile(null)
+        setSessionId(null)
       } finally {
         setIsUploading(false)
       }
@@ -55,7 +55,7 @@ export default function BrandingChat() {
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (file) {
+    if (sessionId) {
       handleSubmit(e)
     } else {
       toast.error("No PDF uploaded", {
@@ -88,7 +88,7 @@ export default function BrandingChat() {
                 <Upload className="w-6 h-6 mr-2" />
               )}
               <span className="text-base leading-normal">
-                {file ? 'PDF Uploaded' : 'Upload PDF'}
+                {sessionId ? 'PDF Uploaded' : 'Upload PDF'}
               </span>
             </label>
             <input
@@ -107,7 +107,7 @@ export default function BrandingChat() {
               placeholder="Ask about the branding..."
               className="flex-grow"
             />
-            <Button type="submit" disabled={isLoading || !file}>
+            <Button type="submit" disabled={isLoading || !sessionId}>
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
@@ -120,4 +120,3 @@ export default function BrandingChat() {
     </div>
   )
 }
-

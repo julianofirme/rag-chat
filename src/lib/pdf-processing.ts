@@ -17,20 +17,31 @@ export const loadAndSplitTheDocs = async (file_path: string) => {
     chunkSize: 1000,
     chunkOverlap: 200,
   });
-  const allSplits = await textSplitter.splitDocuments(docs);
-  return allSplits;
-};
-
-export const vectorSaveAndSearch = async (splits: any[], question: string) => {
-  const embeddings = new OllamaEmbeddings();
+  const splits = await textSplitter.splitDocuments(docs);
   
-  // Initialize or get existing Chroma collection
-  const vectorStore = await Chroma.fromDocuments(
+  // Store the splits in ChromaDB
+  const embeddings = new OllamaEmbeddings();
+  await Chroma.fromDocuments(
     splits,
     embeddings,
     {
       collectionName: "pdf_documents",
-      url: "http://localhost:8000", // Default ChromaDB URL
+      url: "http://localhost:8000",
+    }
+  );
+
+  return splits;
+};
+
+export const vectorSearch = async (sessionId: string, question: string) => {
+  const embeddings = new OllamaEmbeddings();
+  
+  // Get existing Chroma collection
+  const vectorStore = await Chroma.fromExistingCollection(
+    embeddings,
+    {
+      collectionName: "pdf_documents",
+      url: "http://localhost:8000",
     }
   );
 
@@ -65,13 +76,11 @@ export const generatePrompt = async (searches: any[], question: string) => {
 }
 
 export const generateOutput = async (prompt: string) => {
-  
   const ollamaLlm = new ChatOllama({
-    baseUrl: "http://localhost:11434", // Default value
-    model: "llama3.2", // Default value
+    baseUrl: "http://localhost:11434",
+    model: "llama3.2",
   });
 
   const stream = await ollamaLlm.stream(prompt);
   return LangChainAdapter.toDataStreamResponse(stream);
 }
-

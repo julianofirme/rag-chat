@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { loadAndSplitTheDocs } from '@/lib/pdf-processing'
 import path from 'path'
 import fs from 'fs/promises'
+import crypto from 'crypto'
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,14 +19,17 @@ export async function POST(req: NextRequest) {
     await fs.mkdir(path.dirname(tempFilePath), { recursive: true })
     await fs.writeFile(tempFilePath, buffer)
 
-    const splits = await loadAndSplitTheDocs(tempFilePath)
+    const sessionId = crypto.randomUUID()
+    await loadAndSplitTheDocs(tempFilePath)
 
     await fs.unlink(tempFilePath)
 
-    return NextResponse.json({ splits, message: 'PDF processed successfully' })
+    return NextResponse.json({ 
+      sessionId,
+      message: 'PDF processed successfully' 
+    })
   } catch (error) {
     console.error('Error processing PDF:', error)
     return NextResponse.json({ error: 'Error processing PDF' }, { status: 500 })
   }
 }
-
