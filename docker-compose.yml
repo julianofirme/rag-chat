@@ -1,0 +1,7 @@
+version: '3.7'
+
+services:
+  chroma:
+    image: chromadb/chroma
+    ports:
+      - '8000:8000'
