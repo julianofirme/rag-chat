@@ -1,122 +1,158 @@
 'use client'
 
-import { useState } from 'react'
-import { useChat } from 'ai/react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Upload, Send, Loader2 } from 'lucide-react'
+import { Upload, Plus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-export default function BrandingChat() {
-  const [sessionId, setSessionId] = useState<string | null>(null)
-  const [isUploading, setIsUploading] = useState(false)
+interface Chat {
+  id: string
+  name: string
+  description: string
+  pdfUrl: string
+  createdAt: string
+}
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    api: '/api/chat',
-    body: { sessionId }
-  })
+export default function HomePage() {
+  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false)
+  const [chats, setChats] = useState<Chat[]>([])
+  const [isLoadingChats, setIsLoadingChats] = useState(true)
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0]
-    if (selectedFile) {
-      setIsUploading(true)
-      
-      const formData = new FormData()
-      formData.append('pdf', selectedFile)
-
+  useEffect(() => {
+    const fetchChats = async () => {
       try {
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        })
-
+        const response = await fetch('/api/chats')
         if (response.ok) {
-          const { sessionId } = await response.json();
-          setSessionId(sessionId)
-          
-          toast.success("PDF uploaded successfully", {
-            description: "You can now start chatting about the content.",
-          })
+          const data = await response.json()
+          setChats(data)
         } else {
-          throw new Error('Upload failed')
+          throw new Error('Failed to fetch chats')
         }
       } catch (error) {
-        console.error('Upload error:', error)
-        toast.error("Upload failed", {
-          description: "Please try again later.",
-        })
-        setSessionId(null)
+        console.error('Error:', error)
+        toast.error('Failed to load chats')
       } finally {
-        setIsUploading(false)
+        setIsLoadingChats(false)
       }
     }
-  }
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    fetchChats()
+  }, [])
+
+  const handleCreateChat = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (sessionId) {
-      handleSubmit(e)
-    } else {
-      toast.error("No PDF uploaded", {
-        description: "Please upload a PDF before chatting.",
+    setIsLoading(true)
+
+    const formData = new FormData(e.currentTarget)
+    const name = formData.get('name')
+    const description = formData.get('description')
+    const pdf = formData.get('pdf')
+
+    if (!name || !description || !pdf) {
+      toast.error('Please fill all fields')
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      const response = await fetch('/api/chats', {
+        method: 'POST',
+        body: formData,
       })
+
+      if (response.ok) {
+        const { chatId } = await response.json()
+        router.push(`/chat/${chatId}`)
+      } else {
+        throw new Error('Failed to create chat')
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error('Failed to create chat')
+    } finally {
+      setIsLoading(false)
     }
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
-      <Card className="w-full max-w-2xl">
-        <CardHeader>
-          <CardTitle>Chat</CardTitle>
-        </CardHeader>
-        <CardContent className="h-[60vh] overflow-y-auto space-y-4">
-          {messages.map(m => (
-            <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-lg p-3 ${m.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-black'}`}>
-                {m.content}
-              </div>
-            </div>
-          ))}
-        </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
-          <div className="w-full">
-            <label htmlFor="pdf-upload" className="flex items-center justify-center w-full px-4 py-2 bg-white text-blue-500 rounded-lg shadow-lg tracking-wide border border-blue cursor-pointer hover:bg-blue-500 hover:text-white">
-              {isUploading ? (
-                <Loader2 className="w-6 h-6 mr-2 animate-spin" />
-              ) : (
+    <div className="container mx-auto p-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Create New Chat Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Create New Chat</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleCreateChat} className="space-y-4">
+              <Input
+                name="name"
+                placeholder="Chat Name"
+                required
+              />
+              <Input
+                name="description"
+                placeholder="Description"
+                required
+              />
+              <label className="flex items-center justify-center w-full px-4 py-2 bg-white text-blue-500 rounded-lg shadow-lg tracking-wide border border-blue cursor-pointer hover:bg-blue-500 hover:text-white">
                 <Upload className="w-6 h-6 mr-2" />
-              )}
-              <span className="text-base leading-normal">
-                {sessionId ? 'PDF Uploaded' : 'Upload PDF'}
-              </span>
-            </label>
-            <input
-              id="pdf-upload"
-              type="file"
-              className="hidden"
-              accept=".pdf"
-              onChange={handleFileUpload}
-              disabled={isUploading}
-            />
-          </div>
-          <form onSubmit={onSubmit} className="flex w-full space-x-2">
-            <Input
-              value={input}
-              onChange={handleInputChange}
-              placeholder="Ask about the branding..."
-              className="flex-grow"
-            />
-            <Button type="submit" disabled={isLoading || !sessionId}>
-              {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Send className="w-5 h-5" />
-              )}
-            </Button>
-          </form>
-        </CardFooter>
-      </Card>
+                <span>Upload Brand PDF</span>
+                <input
+                  name="pdf"
+                  type="file"
+                  className="hidden"
+                  accept=".pdf"
+                  required
+                />
+              </label>
+              <Button type="submit" disabled={isLoading} className="w-full">
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-2" />
+                )}
+                Create Chat
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Existing Chats */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Your Chats</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoadingChats ? (
+              <div className="flex justify-center p-4">
+                <Loader2 className="w-8 h-8 animate-spin" />
+              </div>
+            ) : chats.length === 0 ? (
+              <p className="text-center text-gray-500">No chats yet</p>
+            ) : (
+              <div className="space-y-2">
+                {chats.map((chat) => (
+                  <Card 
+                    key={chat.id} 
+                    className="p-4 hover:bg-gray-50 cursor-pointer transition-colors" 
+                    onClick={() => router.push(`/chat/${chat.id}`)}
+                  >
+                    <h3 className="font-semibold">{chat.name}</h3>
+                    <p className="text-sm text-gray-500">{chat.description}</p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Created {new Date(chat.createdAt).toLocaleDateString()}
+                    </p>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
